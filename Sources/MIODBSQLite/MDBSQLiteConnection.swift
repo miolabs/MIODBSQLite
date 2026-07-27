@@ -14,7 +14,7 @@ import MIODB
 /// argument of `create`) is the database file path, or ":memory:".
 open class MDBSQLiteConnection : MDBConnection
 {
-    open override func create ( _ to_db: String?, identifier: String? = nil, label: String? = nil, delegate: MDBDelegate? = nil ) throws -> MIODB {
+    open override func create ( _ to_db: String? = nil, identifier: String? = nil, label: String? = nil, delegate: MDBDelegate? = nil ) throws -> MIODB {
         let db = MIODBSQLite( connection: self )
         db.delegate = delegate
         if let id = identifier { db.identifier = id }

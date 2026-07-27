@@ -36,5 +36,9 @@ let package = Package(
         .testTarget(
             name: "MIODBSQLiteTests",
             dependencies: ["MIODBSQLite"]),
+        // Runnable tour of the API: `swift run Example`
+        .executableTarget(
+            name: "Example",
+            dependencies: ["MIODBSQLite"]),
     ]
 )
