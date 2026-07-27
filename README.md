@@ -58,7 +58,7 @@ A value that fails its declared-type conversion throws `MDBError.conversionFaile
 ## Behavior notes
 
 - **Result sets are materialized.** Unlike the PostgreSQL backend (lazy view over a `PGresult`), an open `sqlite3_stmt` holds database locks, so rows are copied into typed storage at execute time and the statement is finalized immediately. Cell values are still converted lazily on access.
-- **Dialect adaptation**: a trailing `FOR UPDATE` is stripped (SQLite writes lock the whole file) and `ILIKE` is rewritten to `LIKE` (case-insensitive for ASCII, matching ILIKE semantics for ASCII text). `::jsonb` casts are not supported.
+- **Dialect**: queries built with `MDBQuery` render through `MDBSQLiteDialect` — `FOR UPDATE` is dropped (SQLite writes lock the whole file), `ILIKE` renders as `LIKE` (case-insensitive for ASCII, matching ILIKE semantics for ASCII text), and multi-row `update` uses the SQLite `VALUES` form. `DISTINCT ON` and the JSON operators throw `MDBError.unsupported`. Raw SQL strings passed to `executeQuery(_:)` are executed untouched — portability of raw fragments is the caller's responsibility.
 - **Pragmas on connect**: `busy_timeout` (configurable via `MDB_SQLITE_BUSY_TIMEOUT`, ms, default 5000), `journal_mode=WAL`, `foreign_keys=ON`.
 - **Multi-statement strings** (`stmt1; stmt2`) execute like libpq's `PQexec`: the result of the last statement is returned.
 - **`affectedRowCount`** is reported for writes only; read-only statements report 0 even after previous writes on the same connection.

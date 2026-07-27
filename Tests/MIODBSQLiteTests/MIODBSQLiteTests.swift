@@ -209,4 +209,44 @@ final class MIODBSQLiteTests: XCTestCase
         let rs = try db.execute( MDBQuery( "product" ).select().andWhere( "name", .ILIKE, "hello%" ) )
         XCTAssertEqual( rs.rowCount, 1 )
     }
+
+    // The old string shim rewrote " ILIKE " anywhere in the final SQL — even
+    // inside a string literal. The dialect maps the operator where it is
+    // rendered, so literals are never touched.
+    func testILikeInsideStringLiteralIsPreserved () throws {
+        let name = "a ILIKE b"
+        try db.execute( MDBQuery( "product" ).insert( [ "id": UUID(), "name": name ] ) )
+        let rs = try db.execute( MDBQuery( "product" ).select().andWhere( "name", .EQ, name ) )
+        XCTAssertEqual( rs.rowCount, 1 )
+        XCTAssertEqual( rs[ 0 ].string( "name" ), name )
+    }
+
+    // Different values per row through the SQLite VALUES form — the generic
+    // Postgres form (VALUES ...) AS t(cols) is invalid SQL on SQLite.
+    func testMultiRowUpdate () throws {
+        let id1 = UUID(), id2 = UUID()
+        try db.execute( MDBQuery( "product" ).insert( [
+            [ "id": id1, "name": "A", "quantity": 1 ],
+            [ "id": id2, "name": "B", "quantity": 1 ],
+        ] ) )
+
+        try db.execute( MDBQuery( "product" ).update( [
+            [ "id": id1, "quantity": 10 ],
+            [ "id": id2, "quantity": 20 ],
+        ], [ "id" ] ) )
+
+        let rs = try db.execute( MDBQuery( "product" ).select().orderBy( "name" ) )
+        XCTAssertEqual( rs[ 0 ].int( "quantity" ), 10 )
+        XCTAssertEqual( rs[ 1 ].int( "quantity" ), 20 )
+    }
+
+    func testUnsupportedConstructsThrow () throws {
+        let distinct = MDBQuery( "product" ).select().distinctOn( [ "name" ] )
+        XCTAssertThrowsError( try db.execute( distinct ) ) { error in
+            guard case MDBError.unsupported = error else { return XCTFail( "expected .unsupported, got \(error)" ) }
+        }
+
+        let json_join = try MDBQuery( "product" ).select().join( table: "category", json: "_relation_categories", to: "category.id" )
+        XCTAssertThrowsError( try db.execute( json_join ) )
+    }
 }
