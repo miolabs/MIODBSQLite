@@ -34,6 +34,8 @@ open class MIODBSQLite: MIODB
 {
     var _connection: OpaquePointer? // sqlite3*
 
+    open override var dialect: MDBDialect { return MDBSQLiteDialect.shared }
+
     deinit { disconnect() }
 
     open override func connect( _ to_db: String? = nil ) throws
@@ -56,13 +58,16 @@ open class MIODBSQLite: MIODB
         database = path
         connectionString = path
 
-        try super.connect( to_db )
+        try super.connect( to_db ) // runs sessionSetup()
+    }
 
-        // busy_timeout: bound how long a statement waits on a locked database
-        // before failing with SQLITE_BUSY, the analog of the Postgres
-        // statement_timeout. Configurable via MDB_SQLITE_BUSY_TIMEOUT (ms).
-        // WAL keeps readers unblocked by the single writer; per-file journals
-        // are what makes one database per venue isolate lock contention.
+    /// busy_timeout: bound how long a statement waits on a locked database
+    /// before failing with SQLITE_BUSY, the analog of the Postgres
+    /// statement_timeout. Configurable via MDB_SQLITE_BUSY_TIMEOUT (ms).
+    /// WAL keeps readers unblocked by the single writer; per-file journals
+    /// are what makes one database per venue isolate lock contention.
+    /// None of the pragmas is correctness-critical, so failures are cosmetic.
+    open override func sessionSetup ( ) throws {
         let busy_timeout = MCEnvironmentVar( "MDB_SQLITE_BUSY_TIMEOUT" ) ?? "5000"
         _ = try? executeQuery( "PRAGMA busy_timeout = \(busy_timeout); PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON" )
     }
@@ -92,10 +97,9 @@ open class MIODBSQLite: MIODB
 
         Log.trace( "ID: \(identifier). QUERY: \(query)" )
 
-        let sql = adaptToDialect( query )
         var resultSet: MDBSQLiteResultSet? = nil
 
-        try sql.withCString { ( cstr: UnsafePointer<CChar> ) in
+        try query.withCString { ( cstr: UnsafePointer<CChar> ) in
             var cursor: UnsafePointer<CChar>? = cstr
 
             while let current = cursor, current.pointee != 0 {
@@ -171,18 +175,6 @@ open class MIODBSQLite: MIODB
         sqlite3_finalize( stmt )
 
         return MDBSQLiteResultSet( columns: cols, declaredTypes: decls, rows: rows, affectedRowCount: affected, db: self )
-    }
-
-    /// MDBQuery generates Postgres-flavored SQL. Two constructs need adapting:
-    /// - `FOR UPDATE` is a parse error in SQLite and meaningless there (writes
-    ///   lock the whole database), so a trailing clause is dropped.
-    /// - `ILIKE` is not SQLite syntax; plain LIKE is already case-insensitive
-    ///   for ASCII, which matches ILIKE semantics for ASCII text.
-    func adaptToDialect ( _ query: String ) -> String {
-        var sql = query
-        if sql.hasSuffix( " FOR UPDATE" ) { sql = String( sql.dropLast( " FOR UPDATE".count ) ) }
-        if sql.contains( " ILIKE " ) { sql = sql.replacingOccurrences( of: " ILIKE ", with: " LIKE " ) }
-        return sql
     }
 
     /// Converts a cell from its SQLite storage class to the Swift type its
