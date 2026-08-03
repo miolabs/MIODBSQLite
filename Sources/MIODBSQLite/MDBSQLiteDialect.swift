@@ -27,10 +27,17 @@ open class MDBSQLiteDialect : MDBDialect
         // Plain LIKE is case-insensitive for ASCII in SQLite, which matches
         // ILIKE semantics for ASCII text.
         case .ILIKE:          return "LIKE"
+        // SQLite has no unaccent; diacritic folding degrades to plain LIKE
+        // (accent-sensitive), mirroring how ILIKE already degrades for
+        // non-ASCII case.
+        case .ILIKE_DI:       return "LIKE"
         case .JSON_EXISTS_IN: throw MDBError.unsupported( "?| (JSON_EXISTS_IN)", "SQLite" )
         default:              return op.rawValue
         }
     }
+
+    open override func foldDiacriticsField ( _ field: String ) throws -> String { return field }
+    open override func foldDiacriticsValue ( _ value: String ) throws -> String { return value }
 
     open override func distinctOnClause ( _ q: MDBQuery ) throws -> String {
         let clause = try super.distinctOnClause( q )
