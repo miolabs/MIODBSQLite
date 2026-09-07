@@ -11,7 +11,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/miolabs/MIODB.git", branch: "master" ),
-        .package(url: "https://github.com/miolabs/MIOCore.git", branch: "master" )
+        .package(url: "https://github.com/miolabs/MIOCore.git", from: "2.0.0" )
     ],
     targets: [
         // On Apple platforms the SDK ships <sqlite3.h> and libsqlite3.tbd, so
