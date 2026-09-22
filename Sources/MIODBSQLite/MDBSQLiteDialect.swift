@@ -22,6 +22,12 @@ open class MDBSQLiteDialect : MDBDialect
     /// unsupported construct that is dropped instead of throwing.
     open override func forUpdateClause ( ) throws -> String { return "" }
 
+    /// SQLite has no decode(): a bytes value is the blob literal X'<hex>'.
+    open override func renderValue ( _ v: MDBValue ) -> String {
+        if case .bytes( let d ) = v.storage { return "X'" + MDBValue.hex_string( d ) + "'" }
+        return super.renderValue( v )
+    }
+
     open override func whereOperator ( _ op: WHERE_LINE_OPERATOR ) throws -> String {
         switch op {
         // Plain LIKE is case-insensitive for ASCII in SQLite, which matches
