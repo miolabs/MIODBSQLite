@@ -79,6 +79,24 @@ final class MIODBSQLiteTests: XCTestCase
         XCTAssertTrue( row.isNull( "info" ) )
     }
 
+    func testBytesRoundTripThroughABlobColumn () throws {
+        // The wire carries base64, the column carries bytes: MDBValue renders the SQLite
+        // blob literal and the driver reads the BLOB back as Data.
+        let id = UUID()
+        let bytes = Data( [ 0x00, 0x01, 0xAB, 0xFF ] )
+        let insert = try MDBQuery( "product" ).insert( [ "id": id, "name": "Blob", "payload": bytes ] )
+        let sql = try insert.rawQuery( dialect: MDBSQLiteDialect.shared )
+        XCTAssertTrue( sql.contains( "X'0001abff'" ), sql )
+        try db.execute( insert )
+
+        let rs = try db.execute( MDBQuery( "product" ).select() )
+        XCTAssertEqual( rs.rowCount, 1 )
+        XCTAssertEqual( try rs[ 0 ].value( "payload" ) as? Data, bytes )
+
+        try db.execute( MDBQuery( "product" ).update( [ "payload": Data() ] ).andWhere( "id", id ) )
+        XCTAssertEqual( try db.execute( MDBQuery( "product" ).select() )[ 0 ].value( "payload" ) as? Data, Data() )
+    }
+
     func testUpdateAndAffectedRows () throws {
         try db.execute( MDBQuery( "product" ).insert( [ "id": UUID(), "name": "A", "quantity": 1 ] ) )
         try db.execute( MDBQuery( "product" ).insert( [ "id": UUID(), "name": "B", "quantity": 1 ] ) )
