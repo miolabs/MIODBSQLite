@@ -184,7 +184,10 @@ open class MIODBSQLite: MIODB
     /// BOOLEAN → Bool, TIMESTAMP/DATETIME/DATE → Date, UUID → UUID,
     /// NUMERIC/DECIMAL → Decimal, JSON → JSONSerialization. An unparseable
     /// value throws instead of degrading to the raw string.
-    func convert ( value: MDBSQLiteValue, declaredType decl: String? ) throws -> Any
+    ///
+    /// Returns `any Sendable` so the compiler checks every cell type at the
+    /// return site; the JSON case is the only runtime rebuild.
+    func convert ( value: MDBSQLiteValue, declaredType decl: String? ) throws -> any Sendable
     {
         func conversionFailed ( _ typeName: String, _ str: String ) -> MDBError {
             Log.error( "ID: \(identifier). Value \"\(str)\" can't be converted to \(typeName). Declared type: \(decl ?? "-")" )
@@ -222,7 +225,7 @@ open class MIODBSQLite: MIODB
                 return u
             }
             if d.contains( "JSON" ) {
-                return try JSONSerialization.jsonObject( with: str.data( using: .utf8 )!, options: [.allowFragments] )
+                return try MDBSendable.value( try JSONSerialization.jsonObject( with: str.data( using: .utf8 )!, options: [.allowFragments] ) )
             }
             if d.contains( "NUMERIC" ) || d.contains( "DECIMAL" ) || d.contains( "MONEY" ) {
                 if str == "NaN" { return Decimal.nan }
