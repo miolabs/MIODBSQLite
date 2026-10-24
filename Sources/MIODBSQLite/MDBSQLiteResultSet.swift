@@ -61,6 +61,12 @@ public final class MDBSQLiteResultSet : MDBResultSet
 
     /// Throws only for values that fail their declared-type conversion.
     public override func value ( row: Int, col: Int ) throws -> Any? {
+        return try sendableValue( row: row, col: col )
+    }
+
+    /// Every cell is `Sendable` by construction: `convert` is typed
+    /// `any Sendable`, so no runtime rebuild happens here.
+    public override func sendableValue ( row: Int, col: Int ) throws -> (any Sendable)? {
         return try db.convert( value: rows[ row ][ col ], declaredType: declaredTypes[ col ] )
     }
 
